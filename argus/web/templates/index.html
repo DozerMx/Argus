@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Argus — Security Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/dist/vis-network.min.js"></script>
+<style>
+:root {
+  --bg:         #0a0a0f;
+  --surface:    #111118;
+  --border:     #1e1e2e;
+  --border2:    #2a2a3e;
+  --text:        #c8c8d8;
+  --text-dim:    #5a5a7a;
+  --accent:      #7c3aed;
+  --accent2:     #4f46e5;
+  --red:         #dc2626;
+  --orange:      #ea580c;
+  --yellow:      #ca8a04;
+  --green:       #16a34a;
+  --blue:        #2563eb;
+  --crit:        #dc2626;
+  --high:        #ea580c;
+  --med:         #ca8a04;
+  --low:         #16a34a;
+  --font-mono:   'Courier New', Courier, monospace;
+  --font-sans:   'Lucida Grande', 'Lucida Sans', Verdana, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 44px 1fr;
+  grid-template-columns: 280px 1fr;
+  overflow: hidden;
+}
+
+/* ---- Topbar ---- */
+#topbar {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 16px;
+}
+
+#topbar .logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text);
+}
+
+#topbar .logo svg { color: var(--accent); }
+
+#topbar .version {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+}
+
+#topbar .spacer { flex: 1; }
+
+#topbar .status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+#topbar .status-dot.running { background: var(--accent); animation: pulse 1.5s infinite; }
+#topbar .status-dot.complete { background: var(--green); }
+#topbar .status-dot.error    { background: var(--red); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+#status-text {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+/* ---- Sidebar ---- */
+#sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#scan-form {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#scan-form h3 {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.field label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.field input[type="text"],
+.field input[type="password"] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 3px;
+  outline: none;
+}
+
+.field input:focus { border-color: var(--accent); }
+
+.toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.toggle input { accent-color: var(--accent); }
+
+#btn-scan {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#btn-scan:hover { background: var(--accent2); }
+#btn-scan:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Scan list */
+#scan-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+#scan-list h3 {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.scan-item {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.scan-item:hover  { border-color: var(--border2); }
+.scan-item.active { border-color: var(--accent); }
+
+.scan-item .si-domain {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.scan-item .si-meta {
+  font-size: 10px;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+}
+
+.badge {
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.badge.running  { background: rgba(124,58,237,0.2); color: var(--accent); }
+.badge.complete { background: rgba(22,163,74,0.2);  color: var(--green);  }
+.badge.error    { background: rgba(220,38,38,0.2);  color: var(--red);    }
+.badge.queued   { background: rgba(90,90,122,0.2);  color: var(--text-dim); }
+
+/* ---- Main content ---- */
+#main {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+#tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  background: var(--surface);
+}
+
+.tab {
+  padding: 12px 16px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.tab:hover  { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+#content {
+  overflow: hidden;
+  position: relative;
+}
+
+.panel {
+  display: none;
+  height: 100%;
+  overflow: hidden;
+}
+.panel.active { display: flex; flex-direction: column; }
+
+/* Overview panel */
+#panel-overview {
+  padding: 16px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.stat-card .sc-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.stat-card .sc-value {
+  font-size: 24px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.stat-card .sc-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* Progress bar */
+#progress-wrap {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+#progress-label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+#progress-bar-bg {
+  height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+/* Findings panel */
+#panel-findings {
+  flex-direction: column;
+}
+
+#findings-toolbar {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sev-filter {
+  padding: 3px 10px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity 0.15s;
+}
+.sev-filter.active { opacity: 1; }
+.sev-filter:not(.active) { opacity: 0.4; }
+.sev-filter.crit  { background: rgba(220,38,38,0.15); color: var(--crit); border-color: rgba(220,38,38,0.3); }
+.sev-filter.high  { background: rgba(234,88,12,0.15); color: var(--high); border-color: rgba(234,88,12,0.3); }
+.sev-filter.med   { background: rgba(202,138,4,0.15); color: var(--med);  border-color: rgba(202,138,4,0.3); }
+.sev-filter.low   { background: rgba(22,163,74,0.15); color: var(--low);  border-color: rgba(22,163,74,0.3); }
+
+#findings-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+#findings-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+
+#findings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#findings-table th {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: left;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+
+#findings-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-size: 12px;
+}
+
+.finding-row:hover td { background: rgba(255,255,255,0.02); }
+
+.sev-tag {
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.sev-CRITICAL { background: rgba(220,38,38,0.15); color: var(--crit); }
+.sev-HIGH     { background: rgba(234,88,12,0.15);  color: var(--high); }
+.sev-MEDIUM   { background: rgba(202,138,4,0.15);  color: var(--med);  }
+.sev-LOW      { background: rgba(22,163,74,0.15);  color: var(--low);  }
+.sev-INFO     { background: rgba(90,90,122,0.15);  color: var(--text-dim); }
+
+td.code { font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+td.entity { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.detail { color: var(--text-dim); max-width: 400px; }
+
+/* Graph panel */
+#panel-graph { position: relative; }
+#graph-container {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+}
+
+#graph-legend {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  background: rgba(17,17,24,0.9);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+#graph-legend .leg-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+#graph-legend .leg-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+/* Log panel */
+#panel-log {
+  flex-direction: column;
+}
+
+#log-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.log-entry { display: flex; gap: 10px; }
+.log-ts    { color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
+.log-msg.info    { color: var(--text-dim); }
+.log-msg.success { color: var(--green); }
+.log-msg.warning { color: var(--yellow); }
+.log-msg.error   { color: var(--red); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div id="topbar">
+  <div class="logo">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="6" y2="12"/>
+      <line x1="18" y1="12" x2="22" y2="12"/>
+    </svg>
+    ARGUS
+  </div>
+  <span class="version">v3.4</span>
+  <span class="spacer"></span>
+  <div class="status-dot" id="status-dot"></div>
+  <span id="status-text">idle</span>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div id="scan-form">
+    <h3>New Scan</h3>
+    <div class="field">
+      <label>Target Domain</label>
+      <input type="text" id="inp-domain" placeholder="example.gov.co" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Username (optional)</label>
+      <input type="text" id="inp-user" placeholder="admin" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Password (optional)</label>
+      <input type="password" id="inp-pass" placeholder="">
+    </div>
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="opt-full"> Full scan</label>
+      <label class="toggle"><input type="checkbox" id="opt-deep"> Deep</label>
+      <label class="toggle"><input type="checkbox" id="opt-brute"> Brute</label>
+      <label class="toggle"><input type="checkbox" id="opt-ports"> Ports</label>
+      <label class="toggle"><input type="checkbox" id="opt-fuzz"> Fuzz</label>
+      <label class="toggle"><input type="checkbox" id="opt-auth"> Auth</label>
+    </div>
+    <button id="btn-scan" onclick="startScan()">Start Scan</button>
+  </div>
+
+  <div id="scan-list">
+    <h3>Scans</h3>
+    <div id="scan-items"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="tabs">
+    <div class="tab active" onclick="showTab('overview')">Overview</div>
+    <div class="tab" onclick="showTab('findings')">Findings <span id="findings-badge"></span></div>
+    <div class="tab" onclick="showTab('graph')">Graph</div>
+    <div class="tab" onclick="showTab('log')">Log</div>
+  </div>
+
+  <div id="content">
+
+    <!-- Overview -->
+    <div class="panel active" id="panel-overview">
+      <div id="progress-wrap">
+        <div id="progress-label">No active scan</div>
+        <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+      </div>
+      <div class="stat-card"><div class="sc-label">Domains</div><div class="sc-value" id="st-domains">-</div></div>
+      <div class="stat-card"><div class="sc-label">IPs</div><div class="sc-value" id="st-ips">-</div></div>
+      <div class="stat-card"><div class="sc-label">Certificates</div><div class="sc-value" id="st-certs">-</div></div>
+      <div class="stat-card"><div class="sc-label">Open Ports</div><div class="sc-value" id="st-ports">-</div></div>
+      <div class="stat-card"><div class="sc-label">Anomalies</div><div class="sc-value" id="st-anomalies">-</div><div class="sc-sub" id="st-anomalies-sub"></div></div>
+      <div class="stat-card"><div class="sc-label">Attack Paths</div><div class="sc-value" id="st-paths">-</div></div>
+      <div class="stat-card"><div class="sc-label">Compliance</div><div class="sc-value" id="st-compliance">-</div></div>
+      <div class="stat-card"><div class="sc-label">Nodes / Edges</div><div class="sc-value" id="st-graph">-</div></div>
+    </div>
+
+    <!-- Findings -->
+    <div class="panel" id="panel-findings">
+      <div id="findings-toolbar">
+        <span class="sev-filter crit active"  onclick="toggleFilter('CRITICAL', this)">CRITICAL</span>
+        <span class="sev-filter high active"  onclick="toggleFilter('HIGH', this)">HIGH</span>
+        <span class="sev-filter med active"   onclick="toggleFilter('MEDIUM', this)">MEDIUM</span>
+        <span class="sev-filter low active"   onclick="toggleFilter('LOW', this)">LOW</span>
+        <span id="findings-count" style="margin-left:auto;font-size:11px;color:var(--text-dim)"></span>
+      </div>
+      <div id="findings-table-wrap">
+        <table id="findings-table">
+          <thead>
+            <tr>
+              <th style="width:90px">Severity</th>
+              <th style="width:240px">Code</th>
+              <th style="width:200px">Entity</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody id="findings-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Graph -->
+    <div class="panel" id="panel-graph">
+      <div id="graph-container"></div>
+      <div id="graph-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#5b21b6"></div> Domain</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#1e40af"></div> IP</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#065f46"></div> Certificate</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#92400e"></div> Organization</div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="panel" id="panel-log">
+      <div id="log-output"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = '';
+let activeScanId = null;
+let ws = null;
+let findings = [];
+let activeFilters = new Set(['CRITICAL','HIGH','MEDIUM','LOW']);
+let network = null;
+
+// --- Tab switching ---
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['overview','findings','graph','log'][i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'graph' && activeScanId) loadGraph(activeScanId);
+}
+
+// --- Start scan ---
+async function startScan() {
+  const domain = document.getElementById('inp-domain').value.trim();
+  if (!domain) return;
+  const user = document.getElementById('inp-user').value.trim();
+  const pass = document.getElementById('inp-pass').value;
+  const body = {
+    domain,
+    full:  document.getElementById('opt-full').checked,
+    deep:  document.getElementById('opt-deep').checked,
+    brute: document.getElementById('opt-brute').checked,
+    ports: document.getElementById('opt-ports').checked,
+    fuzz:  document.getElementById('opt-fuzz').checked,
+    auth:  document.getElementById('opt-auth').checked,
+    credentials: user ? [[user, pass]] : [],
+  };
+  const res = await fetch(API + '/api/scan', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  selectScan(data.scan_id);
+  loadScanList();
+}
+
+// --- Select scan ---
+function selectScan(id) {
+  activeScanId = id;
+  findings = [];
+  document.getElementById('findings-body').innerHTML = '';
+  document.getElementById('log-output').innerHTML = '';
+  connectWS(id);
+  document.querySelectorAll('.scan-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+}
+
+// --- WebSocket ---
+function connectWS(id) {
+  if (ws) ws.close();
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/${id}`);
+  ws.onmessage = e => handleMessage(JSON.parse(e.data));
+  ws.onclose   = () => {
+    // Reconnect after 3s if scan still running
+    setTimeout(() => {
+      if (activeScanId === id) connectWS(id);
+    }, 3000);
+  };
+  setInterval(() => { if (ws.readyState === 1) ws.send('ping'); }, 25000);
+}
+
+// --- Handle WS messages ---
+function handleMessage(msg) {
+  if (msg.type === 'state') {
+    applyState(msg);
+  } else if (msg.type === 'update') {
+    applyUpdate(msg);
+  } else if (msg.type === 'log') {
+    appendLog(msg);
+  } else if (msg.type === 'finding') {
+    addFinding(msg);
+  } else if (msg.type === 'graph') {
+    if (document.getElementById('panel-graph').classList.contains('active')) {
+      renderGraph(msg.nodes, msg.edges);
+    }
+  }
+}
+
+function applyState(s) {
+  applyUpdate(s);
+  if (s.log) s.log.forEach(appendLog);
+  if (s.findings) s.findings.forEach(addFinding);
+  if (s.stats) updateStats(s.stats);
+}
+
+function applyUpdate(u) {
+  setStatusDot(u.status);
+  if (u.progress !== undefined) setProgress(u.progress, u.phase_desc || '');
+  if (u.stats) updateStats(u.stats);
+  loadScanList();
+}
+
+function setStatusDot(status) {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  dot.className = 'status-dot ' + (status || '');
+  text.textContent = status || 'idle';
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label || (pct + '%');
+}
+
+function updateStats(stats) {
+  const types = stats.types || {};
+  document.getElementById('st-domains').textContent    = types.domain       || '-';
+  document.getElementById('st-ips').textContent        = types.ip           || '-';
+  document.getElementById('st-certs').textContent      = types.certificate  || '-';
+  document.getElementById('st-anomalies').textContent  = stats.anomalies    || '-';
+  document.getElementById('st-graph').textContent      = (stats.nodes||'-') + ' / ' + (stats.edges||'-');
+}
+
+function appendLog(entry) {
+  const out = document.getElementById('log-output');
+  const ts  = new Date(entry.ts * 1000).toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg ${entry.level}">${entry.msg}</span>`;
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+}
+
+function addFinding(f) {
+  findings.push(f);
+  if (activeFilters.has(f.severity)) renderFinding(f);
+  const count = document.getElementById('findings-count');
+  count.textContent = findings.length + ' findings';
+  const badge = document.getElementById('findings-badge');
+  const crits = findings.filter(x => x.severity === 'CRITICAL').length;
+  badge.textContent = crits ? ` (${crits})` : '';
+}
+
+function renderFinding(f) {
+  const tbody = document.getElementById('findings-body');
+  const tr    = document.createElement('tr');
+  tr.className = 'finding-row';
+  tr.innerHTML = `
+    <td><span class="sev-tag sev-${f.severity}">${f.severity}</span></td>
+    <td class="code">${f.code}</td>
+    <td class="entity" title="${f.entity}">${f.entity}</td>
+    <td class="detail">${f.detail || ''}</td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function toggleFilter(sev, el) {
+  el.classList.toggle('active');
+  if (activeFilters.has(sev)) activeFilters.delete(sev);
+  else activeFilters.add(sev);
+  redrawFindings();
+}
+
+function redrawFindings() {
+  const tbody = document.getElementById('findings-body');
+  tbody.innerHTML = '';
+  findings.filter(f => activeFilters.has(f.severity)).forEach(renderFinding);
+}
+
+// --- Graph ---
+async function loadGraph(id) {
+  const res  = await fetch(API + '/api/graph/' + id);
+  const data = await res.json();
+  renderGraph(data.nodes || [], data.edges || []);
+}
+
+function renderGraph(nodes, edges) {
+  const container = document.getElementById('graph-container');
+  const data      = {
+    nodes: new vis.DataSet(nodes),
+    edges: new vis.DataSet(edges),
+  };
+  const options = {
+    nodes: {
+      shape: 'dot',
+      font:  { color: '#c8c8d8', size: 10, face: 'Courier New' },
+      borderWidth: 1,
+    },
+    edges: {
+      color:  { color: '#2a2a3e', highlight: '#5b21b6' },
+      width:  1,
+      arrows: { to: { enabled: true, scaleFactor: 0.4 } },
+    },
+    physics: {
+      solver:     'forceAtlas2Based',
+      stabilization: { iterations: 150 },
+    },
+    interaction: {
+      tooltipDelay: 100,
+      hideEdgesOnDrag: true,
+    },
+    background: { color: '#0a0a0f' },
+  };
+  if (network) network.destroy();
+  network = new vis.Network(container, data, options);
+}
+
+// --- Scan list ---
+async function loadScanList() {
+  const res   = await fetch(API + '/api/scans');
+  const scans = await res.json();
+  const wrap  = document.getElementById('scan-items');
+  wrap.innerHTML = '';
+  scans.reverse().forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'scan-item' + (s.id === activeScanId ? ' active' : '');
+    div.dataset.id = s.id;
+    div.onclick = () => selectScan(s.id);
+    const ago = Math.round((Date.now()/1000 - s.started_at) / 60);
+    div.innerHTML = `
+      <div class="si-domain">${s.domain}</div>
+      <div class="si-meta">
+        <span class="badge ${s.status}">${s.status}</span>
+        <span>${ago}m ago</span>
+      </div>
+    `;
+    wrap.appendChild(div);
+  });
+}
+
+// Init
+loadScanList();
+</script>
+</body>
+</html>
