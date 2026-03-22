@@ -1,3 +1,5 @@
+![Argus](screenshot.png)
+
 # Argus
 
 **Security Intelligence Framework**
