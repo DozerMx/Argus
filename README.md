@@ -1,5 +1,18 @@
 ![Argus](screenshot.png)
 
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![License](https://img.shields.io/badge/License-AGPL--v3-red?style=flat-square&logo=gnu&logoColor=white)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-3.5-blueviolet?style=flat-square)](https://github.com/DozerMx/Argus/releases)
+[![Phases](https://img.shields.io/badge/Scan%20Phases-43-darkred?style=flat-square)](https://github.com/DozerMx/Argus)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Termux-222?style=flat-square&logo=linux&logoColor=white)](https://github.com/DozerMx/Argus)
+[![Async](https://img.shields.io/badge/Async-aiohttp-009688?style=flat-square)](https://github.com/aio-libs/aiohttp)
+[![Graph](https://img.shields.io/badge/Knowledge%20Graph-NetworkX-orange?style=flat-square)](https://networkx.org)
+[![No API Keys](https://img.shields.io/badge/API%20Keys-None%20Required-brightgreen?style=flat-square&logo=checkmarx&logoColor=white)](https://github.com/DozerMx/Argus)
+[![Web UI](https://img.shields.io/badge/Web%20UI-FastAPI-05998b?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Last Commit](https://img.shields.io/github/last-commit/DozerMx/Argus?style=flat-square&color=555)](https://github.com/DozerMx/Argus/commits/main)
+[![Stars](https://img.shields.io/github/stars/DozerMx/Argus?style=flat-square&color=gold)](https://github.com/DozerMx/Argus/stargazers)
+[![Repo Size](https://img.shields.io/github/repo-size/DozerMx/Argus?style=flat-square&color=informational)](https://github.com/DozerMx/Argus)
+
 # Argus
 
 **Security Intelligence Framework**
